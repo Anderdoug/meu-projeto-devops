@@ -1,22 +1,44 @@
-name: Continuous Delivery
+name: Run Tests and Notify Discord
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run build step
-        run: echo "Build completo"
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
     steps:
-      - name: Deploy
-        run: echo "Deploy feito com sucesso!"
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+
+    - name: Run Tests
+      run: |
+        python -m unittest discover -s tests
+
+    - name: Notify Discord
+      if: always()
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          STATUS="✅ Testes passaram com sucesso!"
+        else
+          STATUS="❌ Testes falharam!"
+        fi
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"content\": \"${STATUS} Commit: ${{ github.event.head_commit.message }}\"}" \
+             $DISCORD_WEBHOOK
 
